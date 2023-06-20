@@ -1,0 +1,40 @@
+# Please refer https://aka.ms/HTTPSinContainer on how to setup an https developer certificate for your ASP.NET Core service.
+
+version: '3.4'
+
+services:
+  energypeakdetectionproducer:
+    image: energypeakdetectionproducer
+    build:
+      context: .
+      dockerfile: src/EnergyPeakDetection.Producer/Dockerfile
+    ports:
+      - 5115:5115
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ~/.vsdbg:/remote_debugger:rw
+
+  energypeakdetectionstreaming:
+    image: energypeakdetectionstreaming
+    build:
+      context: .
+      dockerfile: src/EnergyPeakDetection.Streaming/Dockerfile
+    ports:
+      - 5231:5231
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ~/.vsdbg:/remote_debugger:rw
+
+  # energypeakdetectionconsumer:
+  #   image: energypeakdetectionconsumer
+  #   build:
+  #     context: .
+  #     dockerfile: src/EnergyPeakDetection.Consumer/Dockerfile
+  #   ports:
+  #     - 5221:5221
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #   volumes:
+  #     - ~/.vsdbg:/remote_debugger:rw
