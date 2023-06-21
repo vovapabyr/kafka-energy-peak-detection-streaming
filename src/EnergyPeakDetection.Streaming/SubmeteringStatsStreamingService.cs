@@ -1,91 +1,53 @@
 
+using System.Text.Json;
 using Confluent.Kafka;
+using EnergyPeakDetection.Common;
+using Streamiz.Kafka.Net;
+using Streamiz.Kafka.Net.SerDes;
+using Streamiz.Kafka.Net.Stream;
+
 namespace EnergyPeakDetection.Streaming;
 
 public class SubmeteringStatsStreamingService : BackgroundService
 {
     private readonly ILogger<SubmeteringStatsStreamingService> _logger;
-    private readonly string _statsTopic;
-    private readonly string _peaksTopic;
-    // private IConsumer<Ignore, VideoFrame> _kafkaConsumer;
-    // private IProducer<Null, VideoFrameStats> _kafkaProducer;
+    private KafkaStream _stream;
 
     public SubmeteringStatsStreamingService(ILogger<SubmeteringStatsStreamingService> logger, IConfiguration configuration)
     {
         _logger = logger;
-        _statsTopic = configuration["Kafka:SubmeteringStatsTopicName"];
-        _peaksTopic = configuration["Kafka:PeaksTopicName"];
-        // var consumerConfig = new ConsumerConfig
-        // {
-        //     BootstrapServers = configuration["Kafka:BootstrapServers"],
-        //     GroupId = "video-frames",
-        //     AutoOffsetReset = AutoOffsetReset.Earliest,
-        // };
-        // _kafkaConsumer = new ConsumerBuilder<Ignore, VideoFrame>(consumerConfig).SetValueDeserializer(new VideoFrameDeserializer()).Build();
-        // var producerConfig = new ProducerConfig()
-        // {
-        //     BootstrapServers = configuration["Kafka:BootstrapServers"]
-        // };
-        // _kafkaProducer = new ProducerBuilder<Null, VideoFrameStats>(producerConfig).SetValueSerializer(new VideoFrameStatsSerializer()).Build();
+        var statsTopic = configuration["Kafka:SubmeteringStatsTopicName"];
+        var peaksTopic = configuration["Kafka:PeaksTopicName"];
+
+        var streamConfig = new StreamConfig<StringSerDes, StatsSerdes>();
+        streamConfig.ApplicationId = "peak-detection";
+        streamConfig.BootstrapServers = configuration["Kafka:BootstrapServers"];
+
+        var streamTopology = BuildEnergyPeakDetectionTopology(statsTopic, peaksTopic);
+        _stream = new KafkaStream(streamTopology, streamConfig);
     }
 
     public override void Dispose()
     {
-        // _kafkaConsumer.Close();
-        // _kafkaConsumer.Dispose();
-        // _kafkaProducer.Dispose();
-
+        _stream.Dispose();
         base.Dispose();
     }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        return Task.Run(() => StartConsumerLoop(stoppingToken), stoppingToken);
+        return StartStatsProcessingAsync(stoppingToken);
     }
 
-    private void StartConsumerLoop(CancellationToken cancellationToken)
+    private async Task StartStatsProcessingAsync(CancellationToken cancellationToken)
     {
-        // _kafkaConsumer.Subscribe(_framesTopicName);
+        await _stream.StartAsync(cancellationToken);
+    }
 
-        // while (!cancellationToken.IsCancellationRequested)
-        // {
-        //     try
-        //     {
-        //         var cr = _kafkaConsumer.Consume(cancellationToken);
-        //         _kafkaProducer.Produce(_framesAnalyticTopicName, new Message<Null, VideoFrameStats> 
-        //         {  
-        //             Value = new VideoFrameStats()
-        //             { 
-        //                 Index = cr.Message.Value.Index,
-        //                 Size = Convert.FromBase64String(cr.Message.Value.FrameBase64).Length,
-        //                 StartTicks = cr.Message.Value.EventTime,
-        //                 EndTicks = DateTime.UtcNow.Ticks
-        //             }
-        //         });
-        //         Thread.Sleep(100);
-        //         _logger.LogInformation("Index: '{Index}'. Size(bytes): '{Size}'. Partition: '{Partition}'. Timestamp: '{Timestamp}'.", cr.Message.Value.Index, Convert.FromBase64String(cr.Message.Value.FrameBase64).Length, cr.Partition.Value, cr.Message.Value.EventTime);
-        //     }
-        //     catch (OperationCanceledException)
-        //     {
-        //         break;
-        //     }
-        //     catch (ConsumeException e)
-        //     {
-        //         // Consumer errors should generally be ignored (or logged) unless fatal.
-        //         _logger.LogWarning($"Consume error: {e.Error.Reason}");
+    private Topology BuildEnergyPeakDetectionTopology(string inputTopic, string outputTopic)
+    {
+        var streamBuilder = new StreamBuilder();
+        streamBuilder.Stream<string, SubmeteringStats>(inputTopic).Peek((k, v) => _logger.LogDebug($"Processing '{ v }'.")).To(outputTopic);
 
-        //         if (e.Error.IsFatal)
-        //         {
-        //             // https://github.com/edenhill/librdkafka/blob/master/INTRODUCTION.md#fatal-consumer-errors
-        //             break;
-        //         }
-        //     }
-        //     catch (Exception e)
-        //     {
-        //         _logger.LogError($"Unexpected error: {e}");
-        //         break;
-        //     }
-        // }
-        // _kafkaProducer.Flush(cancellationToken);
+        return streamBuilder.Build();
     }
 }

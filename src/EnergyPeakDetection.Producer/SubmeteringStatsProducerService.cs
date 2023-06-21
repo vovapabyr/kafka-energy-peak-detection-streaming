@@ -53,9 +53,9 @@ public class SubmeteringStatsProducerService : BackgroundService
                     {
                         var item = csv.GetRecord<SubmeteringsStatsCsvRecord>();
                         _logger.LogDebug($"New submetering stat: '{ item.Date }', '{ item.Time }', '{ item.Submetering1 }', '{ item.Submetering2 }', '{ item.Submetering3 }'");
-                        _kafkaProducer.Produce(_topic, new Message<string, SubmeteringStats> {  Key = KafkaConstants.Submetering1Key, Value = new SubmeteringStats() { Key = KafkaConstants.Submetering1Key, Date = item.Date, Time = item.Time, Value = item.Submetering1 } });
-                        _kafkaProducer.Produce(_topic, new Message<string, SubmeteringStats> {  Key = KafkaConstants.Submetering2Key, Value = new SubmeteringStats() { Key = KafkaConstants.Submetering2Key, Date = item.Date, Time = item.Time, Value = item.Submetering2 } });
-                        _kafkaProducer.Produce(_topic, new Message<string, SubmeteringStats> {  Key = KafkaConstants.Submetering3Key, Value = new SubmeteringStats() { Key = KafkaConstants.Submetering3Key, Date = item.Date, Time = item.Time, Value = item.Submetering3 } });
+                        int i = 0;
+                        foreach (var stats in item.GetSubmeteringsStats())
+                            _kafkaProducer.Produce(new TopicPartition(_topic, new Partition(i++)), new Message<string, SubmeteringStats> {  Value = new SubmeteringStats() { Key = stats.Key, Date = item.Date, Time = item.Time, Value = stats.Value } });
                     }
                     catch (Exception ex)
                     {
