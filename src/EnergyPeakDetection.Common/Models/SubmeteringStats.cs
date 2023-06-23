@@ -12,6 +12,6 @@ public class SubmeteringStats
 
     public override string ToString()
     {
-        return $"{ Key }:{ Date }:{ Time }:{ Value }"; 
+        return $"{ Key }|{ Date }|{ Time }|{ Value }"; 
     }
 }
