@@ -11,5 +11,7 @@ public class SubmeteringAggregateStats
 
     public int Count { get; set; }
 
+    public double StdDeviation { get; set; }
+
     public List<SubmeteringStats> Stats { get; set; }
 }

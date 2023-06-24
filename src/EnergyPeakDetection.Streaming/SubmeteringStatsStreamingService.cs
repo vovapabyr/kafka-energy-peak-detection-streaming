@@ -15,7 +15,7 @@ public class SubmeteringStatsStreamingService : BackgroundService
     public SubmeteringStatsStreamingService(ILogger<SubmeteringStatsStreamingService> logger, IConfiguration configuration)
     {
         _logger = logger;
-        _windowDuration = configuration.GetValue<int>("PeakDetectionWindowDuration");
+        _windowDuration = configuration.GetValue<int>("PeakDetectionWindowSize");
         var statsTopic = configuration["Kafka:SubmeteringStatsTopicName"];
         var peaksTopic = configuration["Kafka:PeaksTopicName"];
 
@@ -60,7 +60,14 @@ public class SubmeteringStatsStreamingService : BackgroundService
         }, InMemoryWindows.As<string, SubmeteringAggregateStats>().WithValueSerdes<SubmeteringAggregateStatsSerdes>())
         .ToStream()
         .Filter((k, v) => v.Count == _windowDuration)
-        .Peek((k, v) => _logger.LogDebug($"Key: '{ k }', sum: '{ v.Sum }', count: '{ v.Count }.'"))
+        .MapValues((k, v) => 
+        {
+            var mean = v.Sum / v.Count;
+            // Standard deviation.
+            v.StdDeviation = Math.Sqrt(v.Stats.Sum(v => Math.Pow(v.Value - mean, 2)) / v.Count);
+            return v;
+        })
+        .Peek((k, v) => _logger.LogInformation($"Key: '{ k }', sum: '{ v.Sum }', count: '{ v.Count }', sigma: '{ v.StdDeviation }'."))
         .To(outputTopic, new TimeWindowedSerDes<string>(new StringSerDes(), 1000), new SubmeteringAggregateStatsSerdes());
 
         return streamBuilder.Build();
