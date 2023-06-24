@@ -65,7 +65,7 @@ services:
       kafka-topics --bootstrap-server kafka-1:9092 --create --if-not-exists --topic submetering-stats-topic --replication-factor 3 --partitions 3
 
       echo -e 'Creating kafka peaks-topic topic'
-      kafka-topics --bootstrap-server kafka-1:9092 --create --if-not-exists --topic peaks-topic --replication-factor 3 --partitions 1
+      kafka-topics --bootstrap-server kafka-1:9092 --create --if-not-exists --topic peaks-topic --replication-factor 3 --partitions 3
 
       echo -e 'Successfully created the following topics:'
       kafka-topics --bootstrap-server kafka-2:9092 --list

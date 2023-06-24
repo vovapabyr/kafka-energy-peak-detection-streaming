@@ -10,12 +10,14 @@ public class SubmeteringStatsStreamingService : BackgroundService
 {
     private readonly ILogger<SubmeteringStatsStreamingService> _logger;
     private readonly int _windowDuration;
+    private readonly double _stdDeviation;
     private KafkaStream _stream;
 
     public SubmeteringStatsStreamingService(ILogger<SubmeteringStatsStreamingService> logger, IConfiguration configuration)
     {
         _logger = logger;
         _windowDuration = configuration.GetValue<int>("PeakDetectionWindowSize");
+        _stdDeviation = configuration.GetValue<double>("StdDeviation");
         var statsTopic = configuration["Kafka:SubmeteringStatsTopicName"];
         var peaksTopic = configuration["Kafka:PeaksTopicName"];
 
@@ -42,6 +44,8 @@ public class SubmeteringStatsStreamingService : BackgroundService
     private async Task StartStatsProcessingAsync(CancellationToken cancellationToken)
     {
         await _stream.StartAsync(cancellationToken);
+
+        _logger.LogInformation("Processing finished");
     }
 
     private Topology BuildEnergyPeakDetectionTopology(string inputTopic, string outputTopic)
@@ -65,10 +69,20 @@ public class SubmeteringStatsStreamingService : BackgroundService
             var mean = v.Sum / v.Count;
             // Standard deviation.
             v.StdDeviation = Math.Sqrt(v.Stats.Sum(v => Math.Pow(v.Value - mean, 2)) / v.Count);
+            // Upper bound outliers = Q3 + 1.5 * (Q3 - Q1) = mean + 2.7 * stdDev
+            var upperBound = mean + 2.7 * _stdDeviation;
+            foreach (var stat in v.Stats)
+            {
+                if (stat.Value > upperBound)
+                    v.Peaks.Add(stat); 
+            }
+
+            _logger.LogDebug($"Key: '{ k }'. Outliers upper bound: '{ upperBound }'. Number of peaks found: '{ v.Peaks.Count }'.");
             return v;
         })
-        .Peek((k, v) => _logger.LogInformation($"Key: '{ k }', sum: '{ v.Sum }', count: '{ v.Count }', sigma: '{ v.StdDeviation }'."))
-        .To(outputTopic, new TimeWindowedSerDes<string>(new StringSerDes(), 1000), new SubmeteringAggregateStatsSerdes());
+        .FlatMap((k, v) => v.Peaks.Select(e => new KeyValuePair<string, SubmeteringStats>(k.Key, e)))
+        .Peek((k, v) => _logger.LogDebug($"PEAK: '{ v }'."))
+        .To(outputTopic);
 
         return streamBuilder.Build();
     }
