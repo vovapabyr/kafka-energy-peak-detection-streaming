@@ -22,10 +22,9 @@ public class SubmeteringStatsStreamingService : BackgroundService
         var peaksTopic = configuration["Kafka:PeaksTopicName"];
 
         var streamConfig = new StreamConfig<StringSerDes, StatsSerdes>();
-        streamConfig.ApplicationId = "peak-detection";
+        streamConfig.ApplicationId = "peaks-detectors";
         streamConfig.BootstrapServers = configuration["Kafka:BootstrapServers"];
         streamConfig.DefaultTimestampExtractor = new SubmeteringStatsEventTimeExtractor(_logger);
-
         var streamTopology = BuildEnergyPeakDetectionTopology(statsTopic, peaksTopic);
         _stream = new KafkaStream(streamTopology, streamConfig);
     }
@@ -81,11 +80,9 @@ public class SubmeteringStatsStreamingService : BackgroundService
             return v;
         })
         .FlatMap((k, v) => v.Peaks.Select(e => new KeyValuePair<string, SubmeteringStats>(k.Key, e)))
-        .Peek((k, v) => _logger.LogDebug($"PEAK: '{ v }'."))
+        .Peek((k, v) => _logger.LogInformation($"PEAK: '{ v }'."))
         .To(outputTopic);
 
         return streamBuilder.Build();
     }
-
-
 }

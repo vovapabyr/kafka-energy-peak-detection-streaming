@@ -27,14 +27,14 @@ services:
     volumes:
       - ~/.vsdbg:/remote_debugger:rw
 
-  # energypeakdetectionconsumer:
-  #   image: energypeakdetectionconsumer
-  #   build:
-  #     context: .
-  #     dockerfile: src/EnergyPeakDetection.Consumer/Dockerfile
-  #   ports:
-  #     - 5221:5221
-  #   environment:
-  #     - ASPNETCORE_ENVIRONMENT=Development
-  #   volumes:
-  #     - ~/.vsdbg:/remote_debugger:rw
+  energypeakdetectionconsumer:
+    image: energypeakdetectionconsumer
+    build:
+      context: .
+      dockerfile: src/EnergyPeakDetection.Consumer/Dockerfile
+    ports:
+      - 5221:5221
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ~/.vsdbg:/remote_debugger:rw
