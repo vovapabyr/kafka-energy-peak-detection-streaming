@@ -24,7 +24,24 @@ To detect outliers we would use the simple IQR (Inter-Quartile Range) Method of 
 }
 ```
 So, to summarize we have data coming from the 'submetering-stats-topic' topic, we aggregate data in windows, apply IQR method to detect peaks within each window, and then put detected peaks to the 'peaks-topic' topic. Because we have our windows overlapping, we do deduplication on the consumer side which reads from 'peaks-topic' topic. To check the topology see ```BuildEnergyPeakDetectionTopology``` method of the [SubmeteringStatsStreamingService](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/blob/main/src/EnergyPeakDetection.Streaming/SubmeteringStatsStreamingService.cs) class.
-**Note. The output stream which represents aggregation would contain all changes of the underlying KTable, which means in our case we would need to use ```suppress``` method of kafka streams to get the last state of window aggregation. But, because Streamiz library doesn't support the ```suppress``` method we get our final aggregation in stream, with the help of filtering out all intermediate states whose stats count is less than window size.**  
+**Note. The output stream which represents aggregation would contain all changes of the underlying KTable, which means in our case we would need to use ```suppress``` method of kafka streams to get the last state of window aggregation. But, because Streamiz library doesn't support the ```suppress``` method we get our final aggregation in stream, with the help of filtering out all intermediate states whose stats count is less than window size.**
+
+## How to run
+Before running the project you need to bind mount the directory with the dataset on your host computer to the directory producer uses [docker-compose.yml](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/blob/main/docker-compose.yml):
+```
+  energypeakdetectionproducer:
+    image: energypeakdetectionproducer
+    container_name: energypeakdetectionproducer
+    build:
+      context: .
+      dockerfile: src/EnergyPeakDetection.Producer/Dockerfile
+    volumes:
+      - "./data/dataset:/app/dataset"
+    depends_on:
+      init-kafka: 
+        condition: service_completed_successfully
+```
+After setting ```PeakDetectionWindowSize```, ```StdDeviation``` options mentioned in **Topology** section, we can run the setup with the following command: ```docker compose up --scale energypeakdetectionstreaming=3```. It starts three instances of [streaming](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/tree/main/src/EnergyPeakDetection.Streaming) application, organized into 'peaks-detectors' consumer group. Each streaming application read stats from a single dedicated partition of the topic and passes data through topology which detects energy peaks. After that, detected peaks would go ```peaks-topic``` topic. Also, a consumer which is subscribed to the ```peaks-topic``` is started. It exposes detected peaks through the web socket connection.   
 
 
 
