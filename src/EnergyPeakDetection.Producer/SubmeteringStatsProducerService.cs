@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Confluent.Kafka;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -21,7 +22,26 @@ public class SubmeteringStatsProducerService : BackgroundService
         {
             BootstrapServers = configuration["Kafka:BootstrapServers"]
         };
-        _kafkaProducer = new ProducerBuilder<string, SubmeteringStats>(config).SetValueSerializer(new SubmeteringStatsSerializer()).Build();
+
+        _kafkaProducer = new ProducerBuilder<string, SubmeteringStats>(config)
+            .SetValueSerializer(new SubmeteringStatsSerializer())
+            .SetPartitioner(_topic, (topic, partitionCount, keyData, _) =>
+            {
+                var key = Encoding.Default.GetString(keyData);
+
+                switch (key)
+                {
+                    case SubmeteringsStatsCsvRecord.Submetering1ColumnKey:
+                        return 0;
+                    case SubmeteringsStatsCsvRecord.Submetering2ColumnKey:
+                        return 1;
+                    case SubmeteringsStatsCsvRecord.Submetering3ColumnKey:
+                        return 2;
+                }
+
+                throw new NotImplementedException(key);
+            })
+            .Build();
     }
 
     public override void Dispose()
@@ -55,7 +75,7 @@ public class SubmeteringStatsProducerService : BackgroundService
                         _logger.LogDebug($"New submetering stat: '{ item.Date }', '{ item.Time }', '{ item.Submetering1 }', '{ item.Submetering2 }', '{ item.Submetering3 }'");
                         int i = 0;
                         foreach (var stats in item.GetSubmeteringsStats())
-                            _kafkaProducer.Produce(new TopicPartition(_topic, new Partition(i++)), new Message<string, SubmeteringStats> { Key = stats.Key, Value = new SubmeteringStats() { Key = stats.Key, Date = item.Date, Time = item.Time, Value = stats.Value } });
+                            _kafkaProducer.Produce(_topic, new Message<string, SubmeteringStats> { Key = stats.Key, Value = new SubmeteringStats() { Key = stats.Key, Date = item.Date, Time = item.Time, Value = stats.Value } });
                     }
                     catch (Exception ex)
                     {

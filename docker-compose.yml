@@ -93,6 +93,7 @@ services:
 
   energypeakdetectionconsumer:
     image: energypeakdetectionconsumer
+    container_name: energypeakdetectionconsumer
     build:
       context: .
       dockerfile: src/EnergyPeakDetection.Consumer/Dockerfile
