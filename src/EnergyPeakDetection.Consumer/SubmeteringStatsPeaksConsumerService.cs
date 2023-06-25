@@ -5,12 +5,14 @@ namespace EnergyPeakDetection.Consumer;
 public class SubmeteringStatsPeaksConsumerService : BackgroundService
 {
     private readonly ILogger<SubmeteringStatsPeaksConsumerService> _logger;
+    private readonly SubmeteringPeaksInMemoryStore _store;
     private readonly string _peaksTopic;
     private IConsumer<string, SubmeteringStats> _kafkaConsumer;
 
-    public SubmeteringStatsPeaksConsumerService(ILogger<SubmeteringStatsPeaksConsumerService> logger, IConfiguration configuration)
+    public SubmeteringStatsPeaksConsumerService(ILogger<SubmeteringStatsPeaksConsumerService> logger, SubmeteringPeaksInMemoryStore store, IConfiguration configuration)
     {
         _logger = logger;
+        _store = store;
         _peaksTopic = configuration["Kafka:PeaksTopicName"];
         var consumerConfig = new ConsumerConfig
         {
@@ -18,6 +20,7 @@ public class SubmeteringStatsPeaksConsumerService : BackgroundService
             GroupId = "peaks-consumers",
             AutoOffsetReset = AutoOffsetReset.Earliest
         };
+
         _kafkaConsumer = new ConsumerBuilder<string, SubmeteringStats>(consumerConfig).SetValueDeserializer(new SubmeteringStatsDeserializer()).Build();
     }
 
@@ -43,7 +46,8 @@ public class SubmeteringStatsPeaksConsumerService : BackgroundService
             try
             {
                 var cr = _kafkaConsumer.Consume(cancellationToken);
-                _logger.LogInformation($"PEAK: { cr.Message.Value }");
+                if(_store.TryAdd(cr.Message.Value))
+                    _logger.LogInformation($"PEAK: { cr.Message.Value }");
             }
             catch (OperationCanceledException)
             {

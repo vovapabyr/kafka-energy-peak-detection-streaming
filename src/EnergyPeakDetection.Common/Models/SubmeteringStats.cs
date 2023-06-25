@@ -10,6 +10,10 @@ public class SubmeteringStats
 
     public double Value { get; set; }
 
+    public DateTime GetDateTime() => Date.Add(Time);
+
+    public string GetKey() => $"{ Key }|{ GetDateTime() }";
+
     public override string ToString()
     {
         return $"{ Key }|{ Date }|{ Time }|{ Value }"; 

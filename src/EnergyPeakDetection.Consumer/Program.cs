@@ -9,6 +9,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHostedService<SubmeteringStatsPeaksConsumerService>();
+builder.Services.AddSingleton<SubmeteringPeaksInMemoryStore>();
 
 var app = builder.Build();
 
