@@ -6,13 +6,15 @@ public class SubmeteringStatsPeaksConsumerService : BackgroundService
 {
     private readonly ILogger<SubmeteringStatsPeaksConsumerService> _logger;
     private readonly SubmeteringPeaksInMemoryStore _store;
+    private readonly SubmeteringPeaksHubService _peaksHubService;
     private readonly string _peaksTopic;
     private IConsumer<string, SubmeteringStats> _kafkaConsumer;
 
-    public SubmeteringStatsPeaksConsumerService(ILogger<SubmeteringStatsPeaksConsumerService> logger, SubmeteringPeaksInMemoryStore store, IConfiguration configuration)
+    public SubmeteringStatsPeaksConsumerService(ILogger<SubmeteringStatsPeaksConsumerService> logger, SubmeteringPeaksInMemoryStore store, SubmeteringPeaksHubService peaksHubService, IConfiguration configuration)
     {
         _logger = logger;
         _store = store;
+        _peaksHubService = peaksHubService;
         _peaksTopic = configuration["Kafka:PeaksTopicName"];
         var consumerConfig = new ConsumerConfig
         {
@@ -37,7 +39,7 @@ public class SubmeteringStatsPeaksConsumerService : BackgroundService
         return Task.Run(() => StartConsumerLoop(stoppingToken), stoppingToken);
     }
 
-    private void StartConsumerLoop(CancellationToken cancellationToken)
+    private async void StartConsumerLoop(CancellationToken cancellationToken)
     {
         _kafkaConsumer.Subscribe(_peaksTopic);
 
@@ -46,8 +48,12 @@ public class SubmeteringStatsPeaksConsumerService : BackgroundService
             try
             {
                 var cr = _kafkaConsumer.Consume(cancellationToken);
-                if(_store.TryAdd(cr.Message.Value))
-                    _logger.LogInformation($"PEAK: { cr.Message.Value }");
+                var peak = cr.Message.Value;
+                if(_store.TryAdd(peak))
+                {
+                    _logger.LogInformation($"PEAK: { peak }");
+                    await _peaksHubService.PushNewDetectedPeakAsync(peak);   
+                }
             }
             catch (OperationCanceledException)
             {

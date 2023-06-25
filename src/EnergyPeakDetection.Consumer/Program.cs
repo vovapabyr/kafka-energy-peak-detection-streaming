@@ -10,6 +10,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHostedService<SubmeteringStatsPeaksConsumerService>();
 builder.Services.AddSingleton<SubmeteringPeaksInMemoryStore>();
+builder.Services.AddSingleton<SubmeteringPeaksHubService>();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -22,8 +24,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+app.UseRouting();
 
-app.MapControllers();
+app.UseEndpoints(conf => {
+    conf.MapControllers();
+    conf.MapHub<SubmeteringPeaksHub>("/peaksHub");
+});
 
 app.Run();
