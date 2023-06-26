@@ -43,7 +43,18 @@ Before running the project you need to bind mount the directory with the dataset
       init-kafka: 
         condition: service_completed_successfully
 ```
-After setting ```PeakDetectionWindowSize```, ```StdDeviation``` options mentioned in **Topology** section, we can run the setup with the following command: ```docker compose up --scale energypeakdetectionstreaming=3```. It starts three instances of [streaming](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/tree/main/src/EnergyPeakDetection.Streaming) application, organized into 'peaks-detectors' consumer group. Each streaming application read stats from a single dedicated partition of the topic and passes data through topology which detects energy peaks. After that, detected peaks would go ```peaks-topic``` topic. Also, a consumer which is subscribed to the ```peaks-topic``` is started. It exposes detected peaks through the web socket connection.   
+After setting ```PeakDetectionWindowSize```, ```StdDeviation``` options mentioned in **Topology** section, we can run the setup with the following command: ```docker compose up --scale energypeakdetectionstreaming=3```. It starts three instances of [streaming](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/tree/main/src/EnergyPeakDetection.Streaming) application, organized into 'peaks-detectors' consumer group. Each streaming application read stats from a single dedicated partition of the topic and passes data through topology which detects energy peaks. After that, detected peaks would go ```peaks-topic``` topic. Also, a consumer which is subscribed to the ```peaks-topic``` is started. It exposes detected peaks through the web socket connection.
+
+## Results
+To display results we establish a web socket connection with Postman.
+### 10min window, StdDeviation = 15
+Notice, that we get a new peak detected each 1-5 minutes
+![10min_window_15_stdDev](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/assets/25819135/cb7a7128-1a64-40dc-a35f-603897bd2dbf)
+### 10min window, StdDeviation = 19
+Notice, that we get a new peak detected once in a couple of days
+![10min_window_19_stdDev](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/assets/25819135/8255292f-23ea-4d94-86b9-8a7e29a29ac2)
+
+
 
 
 
