@@ -1,6 +1,6 @@
 # Energy Peak Detection With Kafka Streaming 
 ## About
-The main objective of this project is to detect energy consumption peaks with Kafka Streams. To emulate the stream of data coming from submetering devices (where each corresponds to a separate room), we use the [dataset](https://github.com/rekharchandran/Analysis-of-Energy-Power-Consumption-IoT-Analytics/blob/master/Data%20Set/household_power_consumption.zip). The Kafka Streams client is written in C# with the help of [Streamiz package](https://lgouellec.github.io/kafka-streams-dotnet/) ([github](https://lgouellec.github.io/kafka-streams-dotnet/))
+The main objective of this project is to detect energy consumption peaks with Kafka Streams. To emulate the stream of data coming from submetering devices (where each corresponds to a separate room), we use the [dataset](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/blob/main/data/dataset/household_power_consumption.zip). The Kafka Streams client is written in C# with the help of [Streamiz package](https://lgouellec.github.io/kafka-streams-dotnet/) ([github](https://lgouellec.github.io/kafka-streams-dotnet/))
 
 ### Partitions and partitioner
 As we have three submetering devices, we would create a 'submetering-stats-topic' topic with three partitions, where each partition would get data from a single specific submetering device. To reach this we would use a custom partitioner which would distribute stats in the following manner:
