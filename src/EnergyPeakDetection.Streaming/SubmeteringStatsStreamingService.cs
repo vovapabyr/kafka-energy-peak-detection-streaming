@@ -1,3 +1,4 @@
+using Confluent.Kafka;
 using EnergyPeakDetection.Common;
 using Streamiz.Kafka.Net;
 using Streamiz.Kafka.Net.SerDes;
@@ -21,10 +22,13 @@ public class SubmeteringStatsStreamingService : BackgroundService
         var statsTopic = configuration["Kafka:SubmeteringStatsTopicName"];
         var peaksTopic = configuration["Kafka:PeaksTopicName"];
 
-        var streamConfig = new StreamConfig<StringSerDes, StatsSerdes>();
-        streamConfig.ApplicationId = "peaks-detectors";
-        streamConfig.BootstrapServers = configuration["Kafka:BootstrapServers"];
-        streamConfig.DefaultTimestampExtractor = new SubmeteringStatsEventTimeExtractor(_logger);
+        var streamConfig = new StreamConfig<StringSerDes, StatsSerdes>()
+        {
+            ApplicationId = "peaks-detectors",
+            BootstrapServers = configuration["Kafka:BootstrapServers"],
+            DefaultTimestampExtractor = new SubmeteringStatsEventTimeExtractor(_logger),
+            CommitIntervalMs = 1000
+        };
         var streamTopology = BuildEnergyPeakDetectionTopology(statsTopic, peaksTopic);
         _stream = new KafkaStream(streamTopology, streamConfig);
     }

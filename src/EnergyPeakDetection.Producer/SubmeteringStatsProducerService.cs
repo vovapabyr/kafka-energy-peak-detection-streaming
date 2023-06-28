@@ -20,7 +20,11 @@ public class SubmeteringStatsProducerService : BackgroundService
         _datasetName = configuration["DatasetName"];
         var config = new ProducerConfig()
         {
-            BootstrapServers = configuration["Kafka:BootstrapServers"]
+            BootstrapServers = configuration["Kafka:BootstrapServers"],
+            EnableIdempotence = true,
+            MaxInFlight = 5,
+            MessageSendMaxRetries = int.MaxValue,
+            Acks = Acks.All
         };
 
         _kafkaProducer = new ProducerBuilder<string, SubmeteringStats>(config)
@@ -65,29 +69,28 @@ public class SubmeteringStatsProducerService : BackgroundService
             _logger.LogInformation("Started processing of dataset.");
             var totalStatsCount = 0;
             var failedStatsCount = 0;
-            try
+            while(await csv.ReadAsync())
             {
-                while(await csv.ReadAsync())
+                try
                 {
-                    try
-                    {
-                        var item = csv.GetRecord<SubmeteringsStatsCsvRecord>();
-                        _logger.LogDebug($"New submetering stat: '{ item.Date }', '{ item.Time }', '{ item.Submetering1 }', '{ item.Submetering2 }', '{ item.Submetering3 }'");
-                        int i = 0;
-                        foreach (var stats in item.GetSubmeteringsStats())
-                            _kafkaProducer.Produce(_topic, new Message<string, SubmeteringStats> { Key = stats.Key, Value = new SubmeteringStats() { Key = stats.Key, Date = item.Date, Time = item.Time, Value = stats.Value } });
-                    }
-                    catch (Exception ex)
-                    {
-                        failedStatsCount++;
-                        _logger.LogError(ex, string.Empty);
-                    }
-                    finally { totalStatsCount++; } 
+                    var item = csv.GetRecord<SubmeteringsStatsCsvRecord>();
+                    _logger.LogDebug($"New submetering stat: '{ item.Date }', '{ item.Time }', '{ item.Submetering1 }', '{ item.Submetering2 }', '{ item.Submetering3 }'");
+                    foreach (var stats in item.GetSubmeteringsStats())
+                        _kafkaProducer.Produce(_topic, new Message<string, SubmeteringStats> { Key = stats.Key, Value = new SubmeteringStats() { Key = stats.Key, Date = item.Date, Time = item.Time, Value = stats.Value } });
                 }
-            }
-            catch (ProduceException<string, SubmeteringStats> ex)
-            {
-                _logger.LogWarning($"Failed to process submetering stats: '{ ex.DeliveryResult.Value }'.");
+                catch (ProduceException<string, SubmeteringStats> ex)
+                {
+                    // Stop processing if we can't send record.
+                    _logger.LogWarning($"Failed to process submetering stats: '{ ex.DeliveryResult.Value }'.");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    // Ignore invalid records.
+                    failedStatsCount++;
+                    _logger.LogError(ex, string.Empty);
+                }
+                finally { totalStatsCount++; } 
             }
 
             _kafkaProducer.Flush(cancellationToken);
