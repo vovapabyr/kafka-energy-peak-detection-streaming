@@ -1,6 +1,6 @@
 # Energy Peak Detection With Kafka Streaming 
 ## About
-The main objective of this project is to detect energy consumption peaks with Kafka Streams. To emulate the stream of data coming from submetering devices (where each corresponds to a separate room), we use the [dataset](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/blob/main/data/dataset/household_power_consumption.zip). The Kafka Streams client is written in C# with the help of [Streamiz package](https://lgouellec.github.io/kafka-streams-dotnet/) ([github](https://lgouellec.github.io/kafka-streams-dotnet/))
+The main objective of this project is to detect energy consumption peaks with Kafka Streams. To emulate the stream of data coming from submetering devices (where each corresponds to a separate room), we use the [dataset](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/blob/main/data/dataset/household_power_consumption.zip). The Kafka Streams client is written in C# with the help of [Streamiz package](https://lgouellec.github.io/kafka-streams-dotnet/) ([github](https://github.com/LGouellec/kafka-streams-dotnet))
 
 ### Partitions and partitioner
 As we have three submetering devices, we would create a 'submetering-stats-topic' topic with three partitions, where each partition would get data from a single specific submetering device. To reach this we would use a custom partitioner which would distribute stats in the following manner:
@@ -27,6 +27,12 @@ To detect outliers we would use the simple IQR (Inter-Quartile Range) Method of 
 ```
 So, to summarize we have data coming from the 'submetering-stats-topic' topic, we aggregate data in windows, apply IQR method to detect peaks within each window, and then put detected peaks to the 'peaks-topic' topic. Because we have our windows overlapping, we do deduplication on the consumer side which reads from 'peaks-topic' topic. To check the topology see ```BuildEnergyPeakDetectionTopology``` method of the [SubmeteringStatsStreamingService](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/blob/main/src/EnergyPeakDetection.Streaming/SubmeteringStatsStreamingService.cs) class.
 **Note. The output stream which represents aggregation would contain all changes of the underlying KTable, which means in our case we would need to use ```suppress``` method of kafka streams to get the last state of window aggregation. But, because Streamiz library doesn't support the ```suppress``` method we get our final aggregation in stream, with the help of filtering out all intermediate states whose stats count is less than window size.**
+
+### Delivery semantics
+To detect peaks accurately we need to make sure that all submeterings' stats are definitely delivered once and are in the correct order. That's why we make our producer idempotent with infinite retries.
+
+### Time
+For energy peaks detection, we should rely on event time that's why a custom [event time extractor](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/blob/main/src/EnergyPeakDetection.Streaming/SubmeteringStatsEventTimeExtractor.cs) is implemented. 
 
 ## How to run
 Before running the project you need to bind mount the directory with the dataset on your host computer to the directory producer uses [docker-compose.yml](https://github.com/vovapabyr/kafka-energy-peak-detection-streaming/blob/main/docker-compose.yml):
